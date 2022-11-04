@@ -6,7 +6,12 @@
         <h1>卷王群LEETCODE排行榜</h1>
       </div>
       <div>
-        <a href="https://github.com/aiai0603/leetcode_rank" target="blank" style="cursor:pointer;color: white;text-decoration: none;">开源地址</a>
+        <a
+          href="https://github.com/aiai0603/leetcode_rank"
+          target="blank"
+          style="cursor: pointer; color: white; text-decoration: none"
+          >开源地址</a
+        >
         <div @click="toSign" class="but">加入排行榜</div>
       </div>
     </div>
@@ -135,64 +140,84 @@ export default {
         if (res.status == 400) {
           ElMessage.error(res.data);
         } else {
+          let pro = [];
           for (let i = 0; i < res.data.length; i++) {
-            let obj = {};
-            obj.leet = res.data[i].leet_id;
-            obj.name = res.data[i].name;
-            await get_content(res.data[i].leet_id).then((res) => {
-              if (res.data == null || res.data.userContestRanking == null) {
-                obj.rank = 1500;
-                obj.medal = null;
-                obj.local = "-";
-                obj.globa = "-";
-              } else {
-                obj.rank = Math.round(res.data.userContestRanking.rating);
-                obj.medal = res.data.userProfileUserLevelMedal.current;
-                obj.globa = res.data.userContestRanking.globalRanking;
-                obj.local = res.data.userContestRanking.localRanking;
-              }
+            let t = new Promise((resolve, reject) => {
+              let obj = {};
+              obj.leet = res.data[i].leet_id;
+              obj.name = res.data[i].name;
+
+              Promise.all([
+                get_content(res.data[i].leet_id),
+                get_steak(res.data[i].leet_id),
+                get_language(res.data[i].leet_id),
+                get_ques(res.data[i].leet_id),
+              ]).then((res) => {
+                if (
+                  res[0].data == null ||
+                  res[0].data.userContestRanking == null
+                ) {
+                  obj.rank = 1500;
+                  obj.medal = null;
+                  obj.local = "-";
+                  obj.globa = "-";
+                } else {
+                  obj.rank = Math.round(res[0].data.userContestRanking.rating);
+                  obj.medal = res[0].data.userProfileUserLevelMedal.current;
+                  obj.globa = res[0].data.userContestRanking.globalRanking;
+                  obj.local = res[0].data.userContestRanking.localRanking;
+                }
+
+                if (res[1].data == null || res[1].data.userCalendar == null) {
+                  obj.steak = 0;
+                } else {
+                  obj.steak = res[1].data.userCalendar.streak;
+                }
+
+                if (
+                  res[2].data == null ||
+                  res[2].data.userLanguageProblemCount == null
+                ) {
+                  obj.language = "-";
+                } else {
+                  obj.language = res[2].data.userLanguageProblemCount.sort(
+                    (a, b) => {
+                      return b.problemsSolved - a.problemsSolved;
+                    }
+                  )[0].languageName;
+                }
+
+                if (
+                  res[3].data == null ||
+                  res[3].data.userProfileUserQuestionProgress
+                    .numAcceptedQuestions.length == 0
+                ) {
+                  obj.easy = 0;
+                  obj.medium = 0;
+                  obj.hard = 0;
+                } else {
+                  obj.easy =
+                    res[3].data.userProfileUserQuestionProgress.numAcceptedQuestions[0].count;
+                  obj.medium =
+                    res[3].data.userProfileUserQuestionProgress.numAcceptedQuestions[1].count;
+                  obj.hard =
+                    res[3].data.userProfileUserQuestionProgress.numAcceptedQuestions[2].count;
+                }
+                obj.sum = obj.easy + obj.medium + obj.hard;
+                resolve(obj);
+                reject("error");
+              });
             });
 
-            await get_steak(res.data[i].leet_id).then((res) => {
-              if (res.data == null || res.data.userCalendar == null) {
-                obj.steak = 0;
-              } else {
-                obj.steak = res.data.userCalendar.streak;
-              }
-            });
-
-            await get_language(res.data[i].leet_id).then((res) => {
-              if (res.data == null || res.data.userLanguageProblemCount == null) {
-                obj.language = "-";
-              } else {
-                obj.language = res.data.userLanguageProblemCount.sort(
-                  (a, b) => {
-                    return b.problemsSolved - a.problemsSolved;
-                  }
-                )[0].languageName;
-              }
-            });
-
-            await get_ques(res.data[i].leet_id).then((res) => {
-              if (res.data == null || res.data.userProfileUserQuestionProgress.numAcceptedQuestions.length == 0) {
-                obj.easy = 0;
-                obj.medium = 0 ;
-                obj.hard = 0;
-              } else {
-                obj.easy =
-                  res.data.userProfileUserQuestionProgress.numAcceptedQuestions[0].count;
-                obj.medium =
-                  res.data.userProfileUserQuestionProgress.numAcceptedQuestions[1].count;
-                obj.hard =
-                  res.data.userProfileUserQuestionProgress.numAcceptedQuestions[2].count;
-              }
-              obj.sum = obj.easy + obj.medium + obj.hard;
-            });
-
-            console.log(obj);
-            tableData.push(obj);
+            pro.push(t);
           }
-          loading.value = false;
+
+          Promise.all(pro).then((res) => {
+            for (let i = 0; i < res.length; i++) {
+              tableData.push(res[i]);
+            }
+            loading.value = false;
+          });
         }
       });
     });
