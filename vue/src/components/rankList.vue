@@ -1,6 +1,6 @@
 
 <template>
-  <div style="height: 100%; width: 100%">
+  <div style="height: 100%; width: 100%; display: flex; flex-flow: column">
     <div class="header">
       <div>
         <h1>卷王群LEETCODE排行榜</h1>
@@ -67,6 +67,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="rank" sortable label="分数" />
+        <el-table-column prop="max" sortable label="最高分数" />
         <el-table-column label="全国排名 / 全球排名">
           <template #default="scope">
             {{ scope.row.local }} / {{ scope.row.globa }}
@@ -85,7 +86,83 @@
           ]"
           :filter-method="filterTag"
         />
-        <el-table-column prop="steak" sortable label="连续打卡" />
+        <el-table-column prop="steak" sortable label="连续打卡">
+          <template #default="scope">
+            <div class="steak">
+              {{ scope.row.steak }}
+              <svg
+                v-if="scope.row.steak > 0"
+                class="steak-logo"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="1em"
+                height="1em"
+                fill="currentColor"
+              >
+                <g filter="url(#hot-filled_svg__filter0_i_289_12318)">
+                  <path
+                    fill-rule="evenodd"
+                    d="M9.588 2.085a1 1 0 01.97.092c2.85 1.966 4.498 4.744 5.31 6.67l.854-.885a1 1 0 011.56.154c2.177 3.38 2.211 7.383.521 10.3C17.039 21.459 13.583 22 11.977 22c-1.569 0-4.905-.27-6.825-3.584-.832-1.435-1.27-3.053-1.125-4.704.146-1.66.876-3.284 2.264-4.721.86-.891 1.505-2.122 1.957-3.322.449-1.193.68-2.278.752-2.806a1 1 0 01.588-.778z"
+                    clip-rule="evenodd"
+                    fill="url(#hot-filled_svg__paint0_linear_289_12318)"
+                  ></path>
+                </g>
+                <defs>
+                  <linearGradient
+                    id="hot-filled_svg__paint0_linear_289_12318"
+                    x1="12"
+                    x2="12"
+                    y1="2"
+                    y2="22"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop stop-color="#FFA116"></stop>
+                    <stop offset="1" stop-color="#F9772E"></stop>
+                  </linearGradient>
+                  <filter
+                    id="hot-filled_svg__filter0_i_289_12318"
+                    width="17.2"
+                    height="21.2"
+                    x="4"
+                    y="2"
+                    color-interpolation-filters="sRGB"
+                    filterUnits="userSpaceOnUse"
+                  >
+                    <feFlood
+                      flood-opacity="0"
+                      result="BackgroundImageFix"
+                    ></feFlood>
+                    <feBlend
+                      in="SourceGraphic"
+                      in2="BackgroundImageFix"
+                      result="shape"
+                    ></feBlend>
+                    <feColorMatrix
+                      in="SourceAlpha"
+                      result="hardAlpha"
+                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+                    ></feColorMatrix>
+                    <feOffset dx="1.2" dy="1.2"></feOffset>
+                    <feGaussianBlur stdDeviation="0.6"></feGaussianBlur>
+                    <feComposite
+                      in2="hardAlpha"
+                      k2="-1"
+                      k3="1"
+                      operator="arithmetic"
+                    ></feComposite>
+                    <feColorMatrix
+                      values="0 0 0 0 0.970833 0 0 0 0 0.05825 0 0 0 0 0 0 0 0 0.16 0"
+                    ></feColorMatrix>
+                    <feBlend
+                      in2="shape"
+                      result="effect1_innerShadow_289_12318"
+                    ></feBlend>
+                  </filter>
+                </defs>
+              </svg>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column sortable label="解题数量" prop="sum">
           <template #default="scope">
             <el-popover
@@ -161,17 +238,34 @@ export default {
                   obj.medal = null;
                   obj.local = "-";
                   obj.globa = "-";
+                  obj.max = 1500;
                 } else {
                   obj.rank = Math.round(res[0].data.userContestRanking.rating);
                   obj.medal = res[0].data.userProfileUserLevelMedal.current;
                   obj.globa = res[0].data.userContestRanking.globalRanking;
                   obj.local = res[0].data.userContestRanking.localRanking;
+                  obj.max = Math.round(res[0].data.userContestRankingHistory.sort(
+                    (a, b) => {
+                      return b.rating - a.rating;
+                    }
+                  )[0].rating);
                 }
 
                 if (res[1].data == null || res[1].data.userCalendar == null) {
                   obj.steak = 0;
                 } else {
-                  obj.steak = res[1].data.userCalendar.streak;
+                  let y = new Date().getFullYear();
+                  let m = new Date().getMonth() + 1;
+                  let d = new Date().getDate();
+
+                  let steak = sum_streak(
+                    JSON.parse(res[1].data.userCalendar.submissionCalendar),
+                    new Date(
+                      Date.parse(y + "/" + m + "/" + d + " 8:0:0")
+                    ).getTime() / 1000
+                  );
+
+                  obj.steak = steak;
                 }
 
                 if (
@@ -222,11 +316,23 @@ export default {
       });
     });
 
+    const gap = 1667952000 - 1667865600;
+    const sum_streak = (calendar, now) => {
+      let cnt = 0;
+
+      while (typeof calendar[now] != "undefined") {
+        cnt++;
+        now -= gap;
+      }
+      return cnt;
+    };
+
     const get_content = async (id) => {
       var obj = {
         query:
           "\n    query userContestRankingInfo($userSlug: String!) {\n  userContestRanking(userSlug: $userSlug) {\n  rating\n   localRanking\n  globalRanking\n  topPercentage\n  }\n     " +
-          " userProfileUserLevelMedal(userSlug: $userSlug) {\n    current {\n      name\n       }\n   }\n     }\n",
+          " userProfileUserLevelMedal(userSlug: $userSlug) {\n    current {\n      name\n       }\n   }\n   " +
+          " userContestRankingHistory(userSlug: $userSlug) {\n       rating\n       }\n  }\n",
         variables: { userSlug: id },
       };
 
@@ -240,7 +346,7 @@ export default {
     const get_steak = async (id) => {
       var obj = {
         query:
-          "\n    query userProfileCalendar($userSlug: String!, $year: Int) {\n  userCalendar(userSlug: $userSlug, year: $year) {\n    streak\n    }\n}\n    ",
+          "\n    query userProfileCalendar($userSlug: String!, $year: Int) {\n  userCalendar(userSlug: $userSlug, year: $year) {\n    submissionCalendar\n    }\n}\n    ",
         variables: { userSlug: id },
       };
       return httpRequest({
@@ -292,6 +398,18 @@ export default {
 
 
 <style scoped>
+.steak {
+  display: flex;
+  flex-flow: row;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.steak-logo {
+  width: 24px;
+  height: 24px;
+  margin-left: 5px;
+}
 .media {
   width: 20px;
   height: 20px;
@@ -308,6 +426,7 @@ export default {
   align-items: center;
   border-radius: 5px;
   font-weight: 600;
+  font-size: 14px;
   margin: 0 20px;
 
   color: #fff;
@@ -342,6 +461,7 @@ h1 {
   width: 100%;
   display: flex;
   flex-flow: row;
+  flex: 1;
 }
 
 .right {
